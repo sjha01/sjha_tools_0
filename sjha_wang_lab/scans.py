@@ -24,7 +24,7 @@ generator_analyzer_scan(freq_min, freq_max, freq_step,
 def analyzer_scan(analyzer, 
                 freq_min, freq_max, freq_step,
                 ref_level=-63.0, span=30, bandwidth=0.01,
-                init_pause = 5.0, pause=1.0,
+                init_pause=5.0, pause=1.0,
                 plot=False, save_trace=False):
     '''
     Requires class hp_e4401 from instruments.py.
