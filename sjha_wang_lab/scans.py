@@ -240,7 +240,10 @@ def generator_analyzer_scan(generator, analyzer,
     
     return scan_array
 
-def cw_odmr_scan(power_dBm, freq_center, freq_span, freq_step, amplifier_dBm=30.0, lag=0.1, count_time=0.1, init_pause=0.0):
+def cw_odmr_scan(generator,
+              power_dBm, freq_center, freq_span, freq_step,
+              amplifier_dBm=30.0, lag=0.1, count_time=0.1,
+              init_pause=0.0):
     '''
     Requires class hp_8647 or similar from instruments.py.
     Example: initialize as and use as...
@@ -267,15 +270,19 @@ def cw_odmr_scan(power_dBm, freq_center, freq_span, freq_step, amplifier_dBm=30.
     >>>freq_step = 2.0
     >>>count_time = 0.5
     >>>
-    >>>cw_odmr_scan(power_dBm, freq_center, freq_span, freq_step, count_time=count_time)
+    >>>cw_odmr_scan(hp, power_dBm, freq_center, freq_span, freq_step, count_time=count_time)
     '''
     import numpy as np
     import matplotlib.pyplot as plt
     import time
+    from itertools import count
     from wanglib.util import scanner
     from wanglib.pylab_extensions.live_plot import plotgen
     from general_tools import save_scan
     from expt_supp import doct
+    
+    def doct2(t=count_time):
+        return doct(t)
     
     parameters = np.array([['Intended input power (dBm)', str(float(power_dBm))],
                            ['Generator power (dBm)', str(float(power_dBm - amplifier_dBm))],
@@ -287,13 +294,11 @@ def cw_odmr_scan(power_dBm, freq_center, freq_span, freq_step, amplifier_dBm=30.
                            ['Count time (s)', str(float(count_time))]
                            ])
     
-    doct2 = lambda _: doct(t=count_time)
-    
-    generator.set_power(generator_power)
     generator.rf_on = 1
+    generator.set_power(power_dBm - amplifier_dBm)
+
     time.sleep(init_pause)
     
-    generator.set_power(power_dBm - amplifier_dBm)
     generator.set_frequency(freq_center)
     freqs = np.arange(-1 * freq_span / 2.0, freq_span / 2.0, freq_step) + freq_center
     
@@ -301,7 +306,7 @@ def cw_odmr_scan(power_dBm, freq_center, freq_span, freq_step, amplifier_dBm=30.
     
     #print(freqs)
     
-    odmr = scanner(freqs, set=hp_set_freq, get=doct2, lag=lag)
+    odmr = scanner(freqs, set=generator.set_frequency, get=doct2, lag=lag)
     
     generator.rf_on = 1
     data = plotgen(odmr)
