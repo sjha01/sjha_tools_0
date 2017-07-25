@@ -284,15 +284,15 @@ def cw_odmr_scan(generator,
     def doct2(t=count_time):
         return doct(t)
     
-    parameters = np.array([['Intended input power (dBm)', str(float(power_dBm))],
-                           ['Generator power (dBm)', str(float(power_dBm - amplifier_dBm))],
-                           ['Assumed amplifier gain (dBm)', str(float(amplifier_dBm))],
-                           ['Generator frequency center (MHz)', str(float(freq_center))],
-                           ['Generator frequency span (MHz)', str(float(freq_span))],
-                           ['Generator frequency step (MHz)', str(float(freq_step))],
-                           ['Lag time (s)', str(float(lag))],
-                           ['Count time (s)', str(float(count_time))]
-                           ])
+    parameters = [['Intended input power (dBm)', str(float(power_dBm))],
+                  ['Generator power (dBm)', str(float(power_dBm - amplifier_dBm))],
+                  ['Assumed amplifier gain (dBm)', str(float(amplifier_dBm))],
+                  ['Generator frequency center (MHz)', str(float(freq_center))],
+                  ['Generator frequency span (MHz)', str(float(freq_span))],
+                  ['Generator frequency step (MHz)', str(float(freq_step))],
+                  ['Lag time (s)', str(float(lag))],
+                  ['Count time (s)', str(float(count_time))]
+                  ]
     
     generator.rf_on = 1
     generator.set_power(power_dBm - amplifier_dBm)
