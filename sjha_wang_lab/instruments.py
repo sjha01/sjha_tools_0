@@ -26,6 +26,7 @@ hp_e4401b(inst)
 '''
 
 import numpy as np
+import sys
 
 ###########################################################
 #Generally useful functions
@@ -995,7 +996,8 @@ class rs_smc_100(object):
         s.append('----------\n')
         if write_to is None:
             for line in s:
-                print(line,end='')
+                #print(line,end='')#doesn't work in Python 2.x
+                sys.stdout.write(line)#use this instead
         else:
             with open(write_to,'a') as f:
                 for line in s:

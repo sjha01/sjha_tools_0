@@ -15,6 +15,11 @@ generator_analyzer_scan(freq_min, freq_max, freq_step,
                 ref_level=-63.0, span=30, bandwidth=0.01,
                 init_pause = 5.0, pause=1.0,
                 plot=True, save_trace=False)
+
+cw_odmr_scan(generator,
+             power_dBm, freq_center, freq_span, freq_step,
+             amplifier_dBm=30.0, lag=0.1, count_time=0.1,
+             init_pause=0.0)
 '''
 
 #Instruments:
