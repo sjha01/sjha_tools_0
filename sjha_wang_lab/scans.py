@@ -239,3 +239,73 @@ def generator_analyzer_scan(generator, analyzer,
         plt.plot(scan_array_0, scan_array_1)
     
     return scan_array
+
+def cw_odmr_scan(power_dBm, freq_center, freq_span, freq_step, amplifier_dBm=30.0, lag=0.1, count_time=0.1, init_pause=0.0):
+    '''
+    Requires class hp_8647 or similar from instruments.py.
+    Example: initialize as and use as...
+    
+    >>>#Initialization...
+    >>>
+    >>>import visa
+    >>>import sjha_wang_lab.instruments as wli
+    >>>
+    >>>rm = visa.ResourceManager()
+    >>>rm.list_resources()
+    ('GPIB0::12::INSTR', 'GPIB0::18::INSTR')
+    >>>
+    >>>print(rm.open_resource('GPIB0::12::INSTR').query('*IDN?'))
+    Hewlett-Packard, 8648C, 3623A03349, B.04.03
+    >>>
+    >>>hp = wli.hp_8647(rm.open_resource('GPIB0::12::INSTR'))
+    >>>
+    >>>#Set scan parameters, then run a scan
+    >>>
+    >>>power_dBm = 30.0
+    >>>freq_center = 2871.0
+    >>>freq_span = 100.0
+    >>>freq_step = 2.0
+    >>>count_time = 0.5
+    >>>
+    >>>cw_odmr_scan(power_dBm, freq_center, freq_span, freq_step, count_time=count_time)
+    '''
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import time
+    from wanglib.util import scanner
+    from wanglib.pylab_extensions.live_plot import plotgen
+    from general_tools import save_scan
+    from expt_supp import doct
+    
+    parameters = np.array([['Intended input power (dBm)', str(float(power_dBm))],
+                           ['Generator power (dBm)', str(float(power_dBm - amplifier_dBm))],
+                           ['Assumed amplifier gain (dBm)', str(float(amplifier_dBm))],
+                           ['Generator frequency center (MHz)', str(float(freq_center))],
+                           ['Generator frequency span (MHz)', str(float(freq_span))],
+                           ['Generator frequency step (MHz)', str(float(freq_step))],
+                           ['Lag time (s)', str(float(lag))],
+                           ['Count time (s)', str(float(count_time))]
+                           ])
+    
+    doct2 = lambda _: doct(t=count_time)
+    
+    generator.set_power(generator_power)
+    generator.rf_on = 1
+    time.sleep(init_pause)
+    
+    generator.set_power(power_dBm - amplifier_dBm)
+    generator.set_frequency(freq_center)
+    freqs = np.arange(-1 * freq_span / 2.0, freq_span / 2.0, freq_step) + freq_center
+    
+    start_time = time.time() - init_pause
+    
+    #print(freqs)
+    
+    odmr = scanner(freqs, set=hp_set_freq, get=doct2, lag=lag)
+    
+    generator.rf_on = 1
+    data = plotgen(odmr)
+    generator.rf_on = 0
+    
+    #Save scan data
+    save_scan(np.transpose(data), base_name='cw_odmr', scan_time=start_time, parameters=parameters)
