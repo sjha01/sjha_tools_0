@@ -248,7 +248,7 @@ def generator_analyzer_scan(generator, analyzer,
 def cw_odmr_scan(generator,
               power_dBm, freq_center, freq_span, freq_step,
               amplifier_dBm=30.0, lag=0.1, count_time=0.1,
-              init_pause=0.0):
+              init_pause=0.0, overlay=False):
     '''
     Requires class hp_8647 or similar from instruments.py.
     Example: initialize as and use as...
@@ -314,6 +314,9 @@ def cw_odmr_scan(generator,
     odmr = scanner(freqs, set=generator.set_frequency, get=doct2, lag=lag)
     
     generator.rf_on = 1
+    #remove previous scans from plot that will be displayed
+    if not overlay:
+        plt.clf()
     data = plotgen(odmr)
     generator.rf_on = 0
     
