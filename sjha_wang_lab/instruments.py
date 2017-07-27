@@ -21,7 +21,7 @@ tek_3102(inst,
 
 #Spectrum analyzers
 
-hp_e4401b(inst)
+hp_e4401(inst)
 
 '''
 
@@ -70,12 +70,12 @@ class hp_8647(object):
     Examples:
         # Hp8647 signal generator on GPIB channel 5.
         # Using pyVisa to create a Resource object.
-        >>> from wanglab_instruments.function_generators import Hp8647
         >>> import visa
+        >>> import sjha_wang_lab.instruments as wli
         >>> rm = visa.ResourceManager()
         >>> rm.list_resources()
         ('GPIB0::5::INSTR')
-        >>> hp = Hp8647(rm.open_resource('GPIB0::5::INSTR'))
+        >>> hp = wli.hp_8647(rm.open_resource('GPIB0::5::INSTR'))
     """
     
     frequencies = {'MHz':1000000.,'kHz':1000.,'Hz':1.}
@@ -201,7 +201,7 @@ class hp_8647(object):
     frequency = property(get_frequency,set_frequency,
         doc=prop_doc('frequency'))
     
-    def set_rf_on(self,on):
+    def set_rf(self,on):
         """
         set_rf_on(self,on):        
         
@@ -213,9 +213,19 @@ class hp_8647(object):
         Returns:
             None
         """
-        self.inst.write('OUTP:STAT {}'.format(on))
+        if on == True or on == 'on':
+            on = 1
+        
+        if on == False or on == 'off':
+            on = 0
+        
+        if on == 1 or on == 0:
+            self.inst.write('OUTP:STAT {}'.format(on))
+        
+        else:
+            raise ValueError('set_rf takes 0 for off, 1 for on')
     
-    def get_rf_on(self):
+    def get_rf(self):
         """
         get_rf_on(self):        
         
@@ -229,7 +239,7 @@ class hp_8647(object):
         """
         return float(self.inst.query('OUTP:STAT?'))
     
-    rf_on = property(get_rf_on,set_rf_on, doc=prop_doc('rf_on'))
+    rf_on = property(get_rf,set_rf, doc=prop_doc('rf_on'))
     
     def set_power(self,power,unit=None):
         """
@@ -287,12 +297,12 @@ class tek_3102(object):
     Examples:
         # Tek3102 funtion generator on GPIB channel 6.
         # Using pyVisa to create a Resource object.
-        >>> from wanglab_instruments.function_generators import Tek3102
         >>> import visa
+        >>> import sjha_wang_lab.instruments as wli
         >>> rm = visa.ResourceManager()
         >>> rm.list_resources()
         ('GPIB0::6::INSTR')
-        >>> afg = Tek3102(rm.open_resource('GPIB0::6::INSTR'), channel=2)
+        >>> afg = wli.tek_3102(rm.open_resource('GPIB0::6::INSTR'), channel=2)
         # Check which output channel we are controlling
         >>> afg.channel
         2
@@ -979,10 +989,30 @@ class rs_smc_100(object):
     
     @rf_on.setter
     def rf_on(self, value):
+        if value == True or value == 'on':
+            value = 1
+        
+        if value == False or value == 'off':
+            value = 0
+        
         if value == 0 or value == 1:
             self.inst.write('OUTP {}'.format(value))
+        
         else:
-            raise ValueError('rf_on takes 0 for off, 1 for on')
+            raise ValueError('set_rf takes 0 for off, 1 for on')
+    
+    def set_rf(self, value):
+        if value == True or value == 'on':
+            value = 1
+        
+        if value == False or value == 'off':
+            value = 0
+        
+        if value == 0 or value == 1:
+            self.inst.write('OUTP {}'.format(value))
+        
+        else:
+            raise ValueError('set_rf takes 0 for off, 1 for on')
     
     def state(self, write_to=None, name=None):
         s = []
@@ -1021,11 +1051,11 @@ class hp_e4401(object):
         # E4401B spectrum analyzer on GPIB channel 18.
         # Using pyVisa to create a Resource object.
         >>> import visa
-        >>> from sjha_tools.instruments import hp_e4401b
+        >>> import sjha_wang_lab.instruments as wli
         >>> rm = visa.ResourceManager()
         >>> rm.list_resources()
         ('GPIB0::18::INSTR')
-        >>> rsa = hp_e4401b(rm.open_resource('GPIB0::18::INSTR'))
+        >>> rsa = wli.hp_e4401(rm.open_resource('GPIB0::18::INSTR'))
     '''
     
     def __init__(self,inst):
