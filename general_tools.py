@@ -1,7 +1,7 @@
 '''
 general_tools.py
-A hodgepodge of tools useful for controlling scans and
-saving data from scans.
+A hodgepodge of tools useful for controlling scans, saving
+data from scans, and analyzing data from scans.
 '''
 
 '''
@@ -26,6 +26,9 @@ timed_for(lst, funct, args,
           print_start=True, print_est=True,
           print_est_end=True, print_end=True)
 
+smooth(x,
+       window_len=11, window='hanning',
+       original_length=True)
 '''
 
 #Saves an array-like data structure to a text file
@@ -278,3 +281,36 @@ def timed_for(lst, funct, args, kwargs=dict(), loop_num=1, delay_time=0.0, add_t
         end_time = time.time()
         print('Actual end time: %s.' % str_local_time(end_time))
 
+#Smooth a 1D array
+def smooth(x, window_len=11, window='hanning', original_length=True):
+    import numpy as np
+    
+    #Error catching
+    
+    if x.ndim != 1:
+        raise ValueError("smooth only accepts 1 dimension arrays.")
+    
+    if x.size < window_len:
+        raise ValueError("Input vector needs to be bigger than window size.")
+        
+    if window_len<3:
+        return x
+    
+    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
+        raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
+    
+    #The function
+    
+    s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
+    #print(len(s))
+    if window == 'flat': #moving average
+        w=np.ones(window_len,'d')
+    else:
+        w=eval('np.'+window+'(window_len)')
+    
+    y=np.convolve(w/w.sum(),s,mode='valid')
+    
+    if original_length:
+        y = y[int((window_len - 1) / 2): int(-(window_len - 1) / 2)]
+    
+    return y

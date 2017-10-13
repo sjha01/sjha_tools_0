@@ -308,7 +308,10 @@ def cw_odmr_scan(generator,
     freqs = np.arange(-1 * freq_span / 2.0, freq_span / 2.0, freq_step) + freq_center
     
     start_time = time.time() - init_pause
+    end_time = start_time + init_pause + (count_time + lag) * len(freqs)
     
+    print('Scan start time: ' + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time)))
+    print('Estimated scan end time: ' + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time)))
     #print(freqs)
     
     odmr = scanner(freqs, set=generator.set_frequency, get=doct2, lag=lag)
@@ -322,3 +325,87 @@ def cw_odmr_scan(generator,
     
     #Save scan data
     save_scan(np.transpose(data), base_name='cw_odmr', scan_time=start_time, parameters=parameters)
+
+#Does a Rabi oscillation scan
+def rabi_osc_scan(generator, power_dBm, freq,
+              mw_pulse_min, mw_pulse_max, mw_pulse_step,
+              amplifier_dBm=30.0, init_pause=0.0,
+              loops=1, loop_num=500000,
+              green_time=2300, det_time=300, off_time=650,
+              overlay=False):
+    '''
+    Requires class hp_8647 or similar from instruments.py.
+    Example: initialize as and use as...
+    
+    >>>#Initialization...
+    >>>
+    >>>import visa
+    >>>import sjha_wang_lab.instruments as wli
+    >>>
+    >>>rm = visa.ResourceManager()
+    >>>rm.list_resources()
+    ('GPIB0::12::INSTR', 'GPIB0::18::INSTR')
+    >>>
+    >>>print(rm.open_resource('GPIB0::12::INSTR').query('*IDN?'))
+    Hewlett-Packard, 8648C, 3623A03349, B.04.03
+    >>>
+    >>>hp = wli.hp_8647(rm.open_resource('GPIB0::12::INSTR'))
+    >>>
+    >>>#Set scan parameters, then run a scan
+    >>>
+    >>>power_dBm = 30.0
+    >>>freq = 2871.0
+    >>>mw_pulse_min = 15.0
+    >>>mw_pulse_max = 600.0
+    >>>mw_pulse_step = 60.0
+    >>>
+    >>>rabi_osc_scan(hp, power_dBm, freq, mw_pulse_min, mw_pulse_max, mw_pulse_step)
+    '''
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import time
+    from wanglib.pylab_extensions.live_plot import plotgen
+    from general_tools import save_scan
+    
+    parameters = [['Intended input power (dBm)', str(float(power_dBm))],
+                  ['Generator power (dBm)', str(float(power_dBm - amplifier_dBm))],
+                  ['Assumed amplifier gain (dBm)', str(float(amplifier_dBm))],
+                  ['Generator frequency (MHz)', str(float(freq_center))], 
+                  ['Minimum microwave pulse time (ns)', str(float(mw_pulse_min))],
+                  ['Minimum microwave pulse time (ns)', str(float(mw_pulse_max))],
+                  ['Microwave pulse time step (ns)', str(float(mw_pulse_step))],
+                  ['loops', str(loops)],
+                  ['loop_num', str(loop_num)],
+                  ['green_time', str(green_time)],
+                  ['green_time', str(green_time)],
+                  ['green_time', str(green_time)],
+                  ]
+    
+    generator.set_power(power_dBm - amplifier_dBm)
+    generator.set_frequency(freq)
+    
+    generator.rf_on = 1
+    #generator.rf_pulsed = 1 #Couldn't get this working in generator drive, will have to turn on manually.
+    
+    time.sleep(init_pause)
+    
+    widths = np.arange(1.0 * mw_pulse_min, 1.0 * mw_pulse_max + 1.0 * mw_pulse_step, 1.0 * mw_pulse_step)
+    if widths[-1] > mw_pulse_max:
+        widths = widths[: -1]
+    
+    start_time = time.time() - init_pause
+    print('Scan start time: ' + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time)))
+    #estimated end time calculated and printed by gen_scan function below
+    
+    gen = gen_scan(widths, loops=loops, loop_num=loop_num, det_time=det_time)
+    
+    if not overlay:
+        plt.clf()
+    data = plotgen(gen)
+    
+    generator.rf_on = 0
+    #generator.rf_pulsed = 0
+    
+    #Save scan data
+    save_scan(np.transpose(data), base_name='rabi_osc', scan_time=start_time, parameters=parameters)
+    

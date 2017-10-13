@@ -239,7 +239,50 @@ class hp_8647(object):
         """
         return float(self.inst.query('OUTP:STAT?'))
     
-    rf_on = property(get_rf,set_rf, doc=prop_doc('rf_on'))
+    rf_on = property(get_rf, set_rf, doc=prop_doc('rf_on'))
+    
+    '''
+    #Not sure why this stuff doesn't work. Will have to turn on pulsed manually.
+    def set_pulsed(self, on):
+        """
+        set_pulsed(self, on):        
+        
+        set the value of pulsed_on        
+        
+        Args:
+            val (bool) : True for on (pulse modulation enabled), False for off (disabled)
+        
+        Returns:
+            None
+        """
+        if on == True or on == 'on' or on ==1:
+            on = 'ON'
+        
+        if on == False or on == 'off' or on ==0:
+            on = 'OFF'
+        
+        if on == 'ON' or on == 'OFF':
+            self.inst.write("PULM:STAT %s" % on)
+        
+        else:
+            raise ValueError('set_rf takes 0 for off, 1 for on')
+    
+    def get_pulsed(self):
+        """
+        get_pulsed_on(self):        
+        
+        get the value of pulsed_on        
+        
+        Args:
+            None
+        
+        Returns:
+            1 for on (pulsed modulation enabled), 0 for off (pulse modulation disabled)
+        """
+        return bool(int(self.inst.query("PULM:STAT?")))
+    
+    pulsed_on = property(get_pulsed, set_pulsed)
+    ''' 
     
     def set_power(self,power,unit=None):
         """
