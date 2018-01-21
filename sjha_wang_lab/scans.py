@@ -95,10 +95,14 @@ def analyzer_scan(analyzer,
     start_time = time.time() - init_pause
     
     #Directory for saved traces
+    trace_dir = time.strftime('scans/%Y-%m-%d-%H-%M-%S_trace', time.localtime(start_time))
     if save_trace:
         try:
             os.mkdir('scans')
-            trace_dir = time.strftime('scans/%Y-%m-%d-%H-%M-%S_trace', time.localtime(start_time))
+        except:
+            #print('could not make one of the directories')
+            pass
+        try:
             os.mkdir(trace_dir)
         except:
             #print('could not make one of the directories')
@@ -211,10 +215,14 @@ def generator_analyzer_scan(generator, analyzer,
     start_time = time.time() - init_pause
     
     #Directory for saved traces
+    trace_dir = time.strftime('scans/%Y-%m-%d-%H-%M-%S_trace', time.localtime(start_time))
     if save_trace:
         try:
             os.mkdir('scans')
-            trace_dir = time.strftime('scans/%Y-%m-%d-%H-%M-%S_trace', time.localtime(start_time))
+        except:
+            #print('could not make one of the directories')
+            pass
+        try:
             os.mkdir(trace_dir)
         except:
             #print('could not make one of the directories')
