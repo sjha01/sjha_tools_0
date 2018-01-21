@@ -21,7 +21,8 @@ def doct(t=.1):
 
 import spinapi as spin
 import time
-from PyDAQmx import * #don't like this, figure out where it's used. I think in make_counter(), make_gate_counter()
+import PyDAQmx as daq
+#from PyDAQmx import * #don't like this, figure out where it's used. I think in make_counter(), make_gate_counter()
 import os
 import itertools
 import sys
@@ -69,24 +70,24 @@ def get_next_filename(dir='.', fmt="data%03d.npy", start=1):
 #Makes a counter that counts when the gate is high and
 #pause when the gate is low
 def make_counter():
-    ctr = Task()
+    ctr = daq.Task()
     ctr.CreateCICountEdgesChan("Dev1/ctr0", "",
-                              DAQmx_Val_Rising,
+                              daq.DAQmx_Val_Rising,
                               0, # initial count
-                              DAQmx_Val_CountUp)
+                              daq.DAQmx_Val_CountUp)
     # configure pause trigger
-    ctr.SetPauseTrigType(DAQmx_Val_DigLvl)
-    ctr.SetDigLvlPauseTrigWhen(DAQmx_Val_Low)
+    ctr.SetPauseTrigType(daq.DAQmx_Val_DigLvl)
+    ctr.SetDigLvlPauseTrigWhen(daq.DAQmx_Val_Low)
     
     return ctr
 
 #Counts the number of times the gate was activated
 def make_gate_counter():
-    ctr = Task()
+    ctr = daq.Task()
     ctr.CreateCICountEdgesChan("Dev1/ctr3", "",
-                              DAQmx_Val_Rising,
+                              daq.DAQmx_Val_Rising,
                               0, #initial count
-                              DAQmx_Val_CountUp)
+                              daq.DAQmx_Val_CountUp)
     return ctr
 
 #context manager for convenience
@@ -102,9 +103,9 @@ def acquiring(*tasks):
             try:
                 task.StopTask()
                 spin.pb_stop()
-                print("stopped task %d" % i, file=sys.stderr)
-            except DAQError:
-                print("no need to stop task %d" % i, file=sys.stderr)
+                print("stopped task %d" % i, sys.stderr)#formerly file=sys.stderr
+            except daq.DAQError:
+                print("no need to stop task %d" % i, sys.stderr)#formerly file=sys.stderr
             raise
 
 #start sequence of tasks
@@ -234,9 +235,9 @@ def green_off():
 #common scans
 ###########################################################
 
-#Does sequence: initialization pulse, delay, MW pulse,
-#delay, detection pulse. This is a single point in a Rabi
-#oscillation scan.
+#Programs into spincore card the sequence: initialization
+#pulse, delay, MW pulse, delay, detection pulse. This is a
+#single point in a Rabi oscillation scan.
 def rabi_pulse(mw_duration, loop_num=500000,
                green_time=2300, det_time=300, off_time=650):
     
@@ -244,7 +245,7 @@ def rabi_pulse(mw_duration, loop_num=500000,
     det_time = det_time * spin.ns
     off_time = off_time * spin.ns #650 original
     mw_time = mw_time * spin.ns
-    delay = (5500 * spin.ns - mw_time)
+    delay_time = (5500 * spin.ns - mw_time)
     
     off = pulse_dict['off']
     mw = pulse_dict['mw']
@@ -256,15 +257,16 @@ def rabi_pulse(mw_duration, loop_num=500000,
     
     spin.pb_start_programming(spin.PULSE_PROGRAM)
 
-    start = spin.pb_inst_pbonly(green, spin.JSR, 2, green_time) # JSR wants instruction line of the subroutine
-    spin.pb_inst_pbonly(off, spin.STOP, 0, off_time) #turn everything off
+    start = spin.pb_inst_pbonly(green, spin.JSR, 2, green_time) # JSR wants instruction line of the subroutine. Turn on green, go into subroutine (starting with sub = line) below
+    spin.pb_inst_pbonly(off, spin.STOP, 0, off_time) #turn everything off. This occurs after the subroutine below.
 
-    sub = spin.pb_inst_pbonly(off, spin.LOOP, loop_num, delay) #delay to isolate from other pulse programs?
+    sub = spin.pb_inst_pbonly(off, spin.LOOP, loop_num, delay_time) #Begin subroutine loop. Delay is so that, for different mw times, loop as a whole (i.e., duty cycle) has the same amount of time.
     spin.pb_inst_pbonly(mw, spin.CONTINUE, 0, mw_time) #microwave pulse for state transfer
-    spin.pb_inst_pbonly(green, spin.CONTINUE, 0, off_time) #what does this do?
+    spin.pb_inst_pbonly(green, spin.CONTINUE, 0, off_time) #accounts for delay between telling green to turn on and green actually turning on.
     spin.pb_inst_pbonly(det, spin.CONTINUE, 0, det_time) #detection pulse
-    spin.pb_inst_pbonly(green, spin.END_LOOP, sub, green_time) #what does this do?
-    spin.pb_inst_pbonly(green, spin.RTS, 0, green_time) #what this does
+    spin.pb_inst_pbonly(green, spin.END_LOOP, sub, green_time) #End subroutine loop. Initialization pulse, it's at the end of the loop, intended for next loop.
+    
+    spin.pb_inst_pbonly(green, spin.RTS, 0, green_time) #After loops. Extra instruction needed after loop, chose green on arbitrarily.
 
     spin.pb_stop_programming()
 
@@ -281,9 +283,9 @@ def gen_scan(widths, loops=1, loop_num=500000,
         for w in range(len(widths)):
             rabi_pulse(widths[w], loop_num=loop_num, green_time=green_time, det_time=det_time, off_time=off_time)
             photons, pulses = make_measurement()
-            count_time = det_time * pulses
+            count_time = det_time * spin.ns * pulses
             counts = photons / count_time
-            if w==0:
+            if i == 0:
                 cntArr.append(counts / float(loops))
                 
                 end_time = start_time + ((time.time() - start_time) * loops * len(widths))
@@ -293,8 +295,7 @@ def gen_scan(widths, loops=1, loop_num=500000,
                 cntArr[w] +=  counts / float(loops) 
                    
     for w in range(len(widths)):
-        counts = cntArr[temp]
+        counts = cntArr[w]
         yield widths[w], counts
 
     spin.pb_stop()
-

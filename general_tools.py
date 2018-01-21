@@ -29,6 +29,8 @@ timed_for(lst, funct, args,
 smooth(x,
        window_len=11, window='hanning',
        original_length=True)
+
+sample_averaged_arr(arr, n)
 '''
 
 #Saves an array-like data structure to a text file
@@ -195,7 +197,8 @@ def time_difference(delta_t):
     S = int((delta_t) - (d * 86400) - (H * 3600) - (M * 60))
     return [d, H, M, S]
 
-#Time differece in S to formatted string of time difference as d H:M:S.
+#Time differece in S to formatted string of time difference
+#as d H:M:S.
 def str_time_difference(delta_t):
     difference_list = [str(item) for item in time_difference(delta_t)]
     return '%s %s:%s:%s' % tuple(difference_list)
@@ -314,3 +317,13 @@ def smooth(x, window_len=11, window='hanning', original_length=True):
         y = y[int((window_len - 1) / 2): int(-(window_len - 1) / 2)]
     
     return y
+
+#Given a 1d array, returns a 1d array where the original
+#array has been averaged every n values.
+def sample_averaged_arr(arr, n):
+    import numpy as np
+    n = int(n)
+    max_len = n * (len(arr) / n)
+    arr = arr[: max_len]
+    new_len = max_len / n
+    return np.array([np.mean(arr[n * item : n * (item + 1)]) for item in range(new_len)])

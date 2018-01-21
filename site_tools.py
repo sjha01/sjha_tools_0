@@ -116,6 +116,18 @@ def compress_rgb_array(orig_image_name, max_dim, save=True):
         misc.imsave(orig_image_name[:-4] + '_compressed_' + str(max_dim) + 'px' + orig_image_name[-4:], im2)
     return im2
 
+#Convert rgb array to grayscale array
+def rgb2gray(rgb):
+    import numpy as np
+    return np.dot(rgb[...,:3], [0.299, 0.587, 0.144])
+
+#Convert grayscale array to rgb array
+def gray2rgb(rgb_arr):
+    import numpy as np
+    g_arr = np.stack((rgb_arr,) * 3)
+    g_arr = np.rollaxis(g_arr, 0, 3)
+    return g_arr
+
 #Convert rgb array to rgba array
 def rgb_to_rgba(rgb_arr, alpha=1.0):
     import numpy as np

@@ -5,21 +5,34 @@ Commonly used scans.
 
 '''
 analyzer_scan(analyzer, 
-                freq_min, freq_max, freq_step,
-                ref_level=-63.0, span=30, bandwidth=0.01,
-                init_pause = 5.0, pause=1.0,
-                plot=False, save_trace=False)
+            freq_min, freq_max, freq_step,
+            ref_level=-63.0, span=30, bandwidth=0.01,
+            init_pause = 5.0, pause=1.0,
+            plot=False, save_trace=False)
 
 generator_analyzer_scan(freq_min, freq_max, freq_step,
-                generator_power=-50.0, rf=1,
-                ref_level=-63.0, span=30, bandwidth=0.01,
-                init_pause = 5.0, pause=1.0,
-                plot=True, save_trace=False)
+            generator_power=-50.0, rf=1,
+            ref_level=-63.0, span=30, bandwidth=0.01,
+            init_pause = 5.0, pause=1.0,
+            plot=True, save_trace=False)
 
 cw_odmr_scan(generator,
-             power_dBm, freq_center, freq_span, freq_step,
-             amplifier_dBm=30.0, lag=0.1, count_time=0.1,
-             init_pause=0.0)
+            power_dBm, freq_center, freq_span, freq_step,
+            amplifier_dBm=30.0, lag=0.1, count_time=0.1,
+            init_pause=0.0)
+
+focus_scan(generator,
+            power_dBm, freq_1, freq_2, scan_time,
+            amplifier_dBm=30.0, lag=0.1, count_time=0.1,
+            init_pause=0.0)
+
+rabi_osc_scan(generator,
+            power_dBm, freq,
+            mw_pulse_min, mw_pulse_max, mw_pulse_step,
+            amplifier_dBm=30.0, init_pause=0.0,
+            loops=1, loop_num=500000,
+            green_time=2300, det_time=300, off_time=650,
+            overlay=False)
 '''
 
 #Instruments:
@@ -326,6 +339,40 @@ def cw_odmr_scan(generator,
     #Save scan data
     save_scan(np.transpose(data), base_name='cw_odmr', scan_time=start_time, parameters=parameters)
 
+#Scan that jumps between two frequencies until told to
+#stop. Purpose is to be able to actively focus so as to
+#maximize the difference in signal between the two points.
+def focus_scan(generator,
+              power_dBm, freq_1, freq_2, scan_time,
+              amplifier_dBm=30.0, lag=0.1, count_time=0.1,
+              init_pause=0.0):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import time
+    from itertools import count
+    from wanglib.util import scanner
+    from wanglib.pylab_extensions.live_plot import plotgen
+    from expt_supp import doct
+    
+    def doct2(t=count_time):
+        return doct(t)
+    
+    len_freqs = int(scan_time / (count_time + lag))
+    freqs = np.zeros(len_freqs)
+    freqs[0::2] = freq_1
+    freqs[1::2] = freq_2
+    
+    generator.set_power(power_dBm - amplifier_dBm)
+    generator.set_frequency(freq_1)
+    generator.rf_on = 1
+    
+    time.sleep(init_pause)
+    
+    focus_scanner = scanner(freqs, set=generator.set_frequency, get=doct2, lag=lag)
+    
+    data = plotgen(focus_scanner)
+    generator.rf_on = 0
+
 #Does a Rabi oscillation scan
 def rabi_osc_scan(generator, power_dBm, freq,
               mw_pulse_min, mw_pulse_max, mw_pulse_step,
@@ -366,25 +413,26 @@ def rabi_osc_scan(generator, power_dBm, freq,
     import time
     from wanglib.pylab_extensions.live_plot import plotgen
     from general_tools import save_scan
+    from expt_supp import gen_scan
     
     parameters = [['Intended input power (dBm)', str(float(power_dBm))],
                   ['Generator power (dBm)', str(float(power_dBm - amplifier_dBm))],
                   ['Assumed amplifier gain (dBm)', str(float(amplifier_dBm))],
                   ['Generator frequency (MHz)', str(float(freq_center))], 
                   ['Minimum microwave pulse time (ns)', str(float(mw_pulse_min))],
-                  ['Minimum microwave pulse time (ns)', str(float(mw_pulse_max))],
+                  ['Maximum microwave pulse time (ns)', str(float(mw_pulse_max))],
                   ['Microwave pulse time step (ns)', str(float(mw_pulse_step))],
                   ['loops', str(loops)],
                   ['loop_num', str(loop_num)],
                   ['green_time', str(green_time)],
-                  ['green_time', str(green_time)],
-                  ['green_time', str(green_time)],
+                  ['det_time', str(det_time)],
+                  ['off_time', str(of_time)],
                   ]
     
     generator.set_power(power_dBm - amplifier_dBm)
     generator.set_frequency(freq)
     
-    generator.rf_on = 1
+    generator.set_rf(1)
     #generator.rf_pulsed = 1 #Couldn't get this working in generator drive, will have to turn on manually.
     
     time.sleep(init_pause)
@@ -403,9 +451,9 @@ def rabi_osc_scan(generator, power_dBm, freq,
         plt.clf()
     data = plotgen(gen)
     
-    generator.rf_on = 0
+    generator.set_rf(0)
     #generator.rf_pulsed = 0
     
     #Save scan data
     save_scan(np.transpose(data), base_name='rabi_osc', scan_time=start_time, parameters=parameters)
-    
+
