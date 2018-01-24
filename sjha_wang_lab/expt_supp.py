@@ -28,6 +28,17 @@ import itertools
 import sys
 from contextlib import contextmanager
 
+if spin.pb_init() != 0:
+    print("Error initializing board: %s" % spin.pb_get_error())
+    input("Please press a key to continue.")
+    exit(-1)
+
+if spin.pb_count_boards()== 1: # check to see if we have one spincore card
+    spin.pb_core_clock(500) # sets the spincore clock to 500 MHz
+    #print("Ready to go!")
+else:
+    print("SpinCore board not found")
+
 #Check that there is a single spincore board, and set clock
 #to 500 MHz
 def spincore_status_check(print_ready=False):
@@ -121,9 +132,9 @@ def finish_sequence(*tasks):
 
 #get photon counts [from APD]
 def get_counts(ctr): # must give it the channel to look into
-    count = uInt32()
+    count = daq.uInt32()
     #ctr.WaitUntilTaskDone(10.) # not sure what for but could be useful?
-    ctr.ReadCounterScalarU32(10.0, byref(count), None)
+    ctr.ReadCounterScalarU32(10.0, daq.byref(count), None)
     ctr.StopTask()
     return count.value
 
@@ -244,7 +255,7 @@ def rabi_pulse(mw_duration, loop_num=500000,
     green_time = green_time * spin.ns
     det_time = det_time * spin.ns
     off_time = off_time * spin.ns #650 original
-    mw_time = mw_time * spin.ns
+    mw_time = mw_duration * spin.ns
     delay_time = (5500 * spin.ns - mw_time)
     
     off = pulse_dict['off']
@@ -252,8 +263,7 @@ def rabi_pulse(mw_duration, loop_num=500000,
     green = pulse_dict['green']
     det = pulse_dict['detection']
     
-    #loop_num = 500000 #original 100,000 #20161031 put this as optional parameter in function
-    #20161031 due to how code is written, rabi_program won't take loop_num > 2**20 = 1048576
+    #note: rabi_program won't take loop_num > 2**20 = 1048576
     
     spin.pb_start_programming(spin.PULSE_PROGRAM)
 
@@ -271,31 +281,38 @@ def rabi_pulse(mw_duration, loop_num=500000,
     spin.pb_stop_programming()
 
 #Measurements for Rabi oscillation pulse sequence
-def gen_scan(widths, loops=1, loop_num=500000,
+def gen_scan(widths, loop_num=500000, repeat_each_pulse_width=1,
              green_time=2300, det_time=300, off_time=650):
     
-    cntArr = []
+    repeat_each_pulse_width = int(repeat_each_pulse_width)
+    cnt_arr = []
     start_time = time.time()
     
-    for i in range(loops):
-        print('beginning loop ' + str(i + 1) + ' of ' + str(loops))
+    w_ind = 0
+    cnt_arr_ind = 0
+    for w in widths:
         
-        for w in range(len(widths)):
-            rabi_pulse(widths[w], loop_num=loop_num, green_time=green_time, det_time=det_time, off_time=off_time)
-            photons, pulses = make_measurement()
-            count_time = det_time * spin.ns * pulses
-            counts = photons / count_time
-            if i == 0:
-                cntArr.append(counts / float(loops))
-                
-                end_time = start_time + ((time.time() - start_time) * loops * len(widths))
-                print('Estimated scan end time: ' + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time)))
-                
-            else:
-                cntArr[w] +=  counts / float(loops) 
-                   
-    for w in range(len(widths)):
-        counts = cntArr[w]
-        yield widths[w], counts
-
+        rabi_pulse(w, loop_num=loop_num, green_time=green_time, det_time=det_time, off_time=off_time)
+        photons, pulses = make_measurement()
+        count_time = det_time * spin.ns * pulses
+        counts = photons / count_time
+        
+        if w_ind == 0: 
+            cnt_arr.append(counts / float(repeat_each_pulse_width))
+            
+            end_time = start_time + ((time.time() - start_time) * len(widths))
+            print('Estimated scan end time: ' + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time)))
+            
+        elif  not widths[w_ind] == widths[w_ind - 1]:
+            cnt_arr.append(counts / float(repeat_each_pulse_width))
+            cnt_arr_ind += 1
+        
+        else:
+            cnt_arr[cnt_arr_ind] +=  counts / float(repeat_each_pulse_width)
+        
+        w_ind += 1
+        
+        if w_ind % repeat_each_pulse_width == 0:
+            yield (w - 1), cnt_arr[cnt_arr_ind]
+    
     spin.pb_stop()
