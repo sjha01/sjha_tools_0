@@ -1263,3 +1263,151 @@ class tek_3034(object):
         pts=int(self.inst.ask('WFMP:NR_PT?'))
         x=np.linspace(xzero,xzero+pts*xinc,pts)
         return x,y
+
+#Tektronix 5103 spectrum analyzer
+class tek_5103(object):
+    '''
+    Initialize Tektronix 5103 class object
+
+    Args:
+        inst (object) : Object for communication with an
+        Tek 5103 spectrum.  Typically a pyVisa Resource.
+
+    Example:
+        # 5103 spectrum analyzer on GPIB channel 18.
+        # Using pyVisa to create a Resource object.
+        >>> import visa
+        >>> import sjha_wang_lab.instruments as wli
+        >>> rm = visa.ResourceManager()
+        >>> rm.list_resources()
+        ('GPIB0::18::INSTR')
+        >>> rsa = wli.tek_503(rm.open_resource('GPIB0::18::INSTR'))
+    '''
+    
+    def __init__(self,inst):
+        self.inst = inst
+    
+    def get_frequency_unit(self):
+        return 'MHz'
+    
+    def get_power_unit(self):
+        return 'dBm'
+    
+    #get center frequency [MHz].
+    def get_frequency(self):
+        return float(self.inst.query('SENS:SPEC:FREQ:CENT?')) * 10**-6.0
+    
+    #set center frequency [MHz].
+    def set_frequency(self, MHz):
+        self.inst.write('SENS:SPEC:FREQ:CENT {}{}'.format(freq, 'MHz'))
+    
+    #get span [MHz].
+    def get_span(self)
+        return float(self.inst.query('SENS:SPEC:FREQ:SPAN?')) * 10**-6.0
+    
+    #set span [MHz].
+    def set_span(self, MHz):
+        self.inst.write('SENS:SPEC:FREQ:SPAN {}{}'.format(freq,unit))
+    
+    #show trace (1) or don't (0)
+    def set_trace(self, trace):
+        if trace in ['on', True, 1]:
+            trace = 1
+            self.inst.write('TRAC{}:SPEC ON'.format(trace))
+        
+        elif trace in ['off', False, 0]:
+            trace = 0
+            self.inst.write('TRAC{}:SPEC ON'.format(trace))
+        
+        else:
+            raise ValueError('set_trace takes 0 for off, 1 for on')
+    
+    #set the number of averages.
+    #count=1 causes a single acquisition of the analyzer to
+    #avg over the number of spectra specified by avg.
+    #If count=0, a single acquisition will only collect a
+    #single run, and averaging will only work with the
+    #analyzer in continuous acquisition mode.
+    def set_averaging(self, trace, avg, count=True):
+        """
+        set_averaging(self,trace,avg,count=True):        
+        set the number of averages
+        count=1 causes a single acquisition of the analyzer to avg over the
+        number of spectra specified by avg.  If count=0, a single acquisition
+        will only collect a single run, and averaging will only work with the
+        analyzer in continuous acquisition mode.
+        Args:
+            trace (int) : trace to set averaging for
+            avg (int) : number of averages
+            count (bool, optional) : True to enable count
+        
+        Returns:
+            None
+        """
+        self.inst.write('TRAC{}:SPEC:FUNC AVER'.format(trace))
+        self.inst.write('TRAC{}:SPEC:AVER:COUN {}'.format(trace,avg))
+        if count:
+            self.inst.write('TRAC{}:SPEC:COUNT:ENAB 1'.format(trace))
+        else:
+            self.inst.write('TRAC{}:SPEC:COUNT:ENAB 0'.format(trace))
+    
+    #get the value of averaging
+    def get_averaging(self, trace):
+        return float(self.inst.query('TRAC{}:SPEC:AVER:COUN?'.format(trace)))
+    
+    #reset the averaging on trace
+    def reset_averaging(self, trace):
+        self.inst.write('TRAC{}:SPEC:AVER:RES'.format(trace))
+    
+    #set the value of the time duration for acquisition
+    def set_acquisition_time(self, time):
+        self.inst.write('SENSE:ACQUISITION:SECONDS {}'.format(time))
+    
+    #get the value of the time duration for acquisition
+    def get_acquisition_time(self):
+        return float(self.inst.query('SENSE:ACQUISITION:SECONDS?'))
+    
+    #set the value of acq_samples, the number of acquisition samples
+    def set_acquisition_samples(self, samples):
+        self.inst.write('SENSE:ACQUISITION:SAMPLES {}'.format(samples))
+
+    #get the value of acq_samples, the number of acquisition samples
+    def get_acquisition_samples(self):
+        return float(self.inst.query('SENSE:ACQUISITION:SAMPLES?'))
+
+    acquisition_samples = property(get_acq_samples,
+        set_acquisition_samples,doc=prop_doc('acquisition_samples'))
+    
+    #set bandwidth [MHz].
+    def set_bandwidth(self, MHz):
+        self.inst.write('SENS:SPEC:BAND:RES {}{}'.format(MHz,'Mhz'))
+    
+    #get bandwidth [MHz].
+    def get_bandwidth(self):
+        return float(self.inst.query('SENS:SPEC:BAND:RES:ACT?')) * 10**-6.0
+    
+    #get reference level [dBm]
+    def get_reference_level(self):
+        return float(self.inst.query('DISP:WIND:TRAC:Y:SCAL:RLEV?'))
+    
+    #set analyzer reference level [dBm]. Should be lower
+    #than power readings that you're expecting.
+    def set_reference_level(self, dBm):
+        self.inst.write('DISP:WIND:TRAC:Y:SCAL:RLEV ' + str(dBm))
+    
+    #takes the spectrum data currently stored in the RSA
+    def spectrum_trace(self, trace):
+        return self.inst.query_binary_values('FETCH:SPECTRUM:TRACE{}?'.format(trace))
+    
+    #fetch the current spectrum waveform from trace
+    def trace(self, trace=1):
+        freq_center = self.get_frequency(self)
+        freq_span = self.get_span(self)
+        freq_min = freq_center - freq_span / 2.0
+        freq_max = freq_center + freq_span / 2.0
+        
+        y = np.array(self.spectrum_trace(trace))
+        x = np.linspace(freq_min, freq_max, len(y))
+        
+        return np.array([x, y])
+    

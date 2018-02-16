@@ -323,7 +323,7 @@ def smooth(x, window_len=11, window='hanning', original_length=True):
 def sample_averaged_arr(arr, n):
     import numpy as np
     n = int(n)
-    max_len = n * (len(arr) / n)
+    max_len = int(n * (len(arr) / n))
     arr = arr[: max_len]
-    new_len = max_len / n
+    new_len = int(max_len / n)
     return np.array([np.mean(arr[n * item : n * (item + 1)]) for item in range(new_len)])

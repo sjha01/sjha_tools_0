@@ -328,7 +328,13 @@ def cw_odmr_scan(generator,
                   ['Repeat each frequency', str(int(repeat_each_freq))]
                   ]
     
+    try:
+        generator.set_pulsed(0)
+    except:
+        pass
+    
     generator.set_rf(1)
+    
     generator.set_power(power_dBm - amplifier_dBm)
 
     time.sleep(init_pause)
@@ -486,7 +492,7 @@ def rabi_osc_scan(generator, power_dBm, freq,
     print('Scan start time: ' + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time)))
     #estimated end time calculated and printed by gen_scan function below
     
-    gen = gen_scan(widths, loop_num=loop_num, repeat_each_pulse_width=repeat_each_pulse_width, det_time=det_time)
+    gen = gen_scan(widths, loop_num=loop_num, repeat_each_pulse_width=repeat_each_pulse_width, det_time=det_time, off_time=off_time)
     data = plotgen(gen)
     if not overlay:
         plt.clf()

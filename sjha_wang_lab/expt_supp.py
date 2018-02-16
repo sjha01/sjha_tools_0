@@ -158,12 +158,13 @@ def make_measurement():
 ###########################################################
 
 #standard pulses
+#make sure these channels match up with spincore card channels.
 pulse_dict = dict(
                   off = 0b111000000000000000000000,
                   all_on = 0b111000000000000000000000,
                   green = 0b111000000000000000000001,
-                  mw = 0b111000000000000000000010,
-                  detection = 0b111000000000000000000101
+                  mw = 0b111000000000000000001000,
+                  detection = 0b111000000000000000000011
                  )
 
 #add a pulse to pulse_dict, or change an existing pulse.
@@ -254,9 +255,10 @@ def rabi_pulse(mw_duration, loop_num=500000,
     
     green_time = green_time * spin.ns
     det_time = det_time * spin.ns
-    off_time = off_time * spin.ns #650 original
+    off_time = off_time * spin.ns
     mw_time = mw_duration * spin.ns
     delay_time = (5500 * spin.ns - mw_time)
+    #delay_time = 500
     
     off = pulse_dict['off']
     mw = pulse_dict['mw']
@@ -271,7 +273,7 @@ def rabi_pulse(mw_duration, loop_num=500000,
     spin.pb_inst_pbonly(off, spin.STOP, 0, off_time) #turn everything off. This occurs after the subroutine below.
 
     sub = spin.pb_inst_pbonly(off, spin.LOOP, loop_num, delay_time) #Begin subroutine loop. Delay is so that, for different mw times, loop as a whole (i.e., duty cycle) has the same amount of time.
-    spin.pb_inst_pbonly(mw, spin.CONTINUE, 0, mw_time) #microwave pulse for state transfer
+    spin.pb_inst_pbonly(mw, spin.CONTINUE, 0, mw_time) #microwave pulse for state transfer.
     spin.pb_inst_pbonly(green, spin.CONTINUE, 0, off_time) #accounts for delay between telling green to turn on and green actually turning on.
     spin.pb_inst_pbonly(det, spin.CONTINUE, 0, det_time) #detection pulse
     spin.pb_inst_pbonly(green, spin.END_LOOP, sub, green_time) #End subroutine loop. Initialization pulse, it's at the end of the loop, intended for next loop.
@@ -294,7 +296,8 @@ def gen_scan(widths, loop_num=500000, repeat_each_pulse_width=1,
         
         rabi_pulse(w, loop_num=loop_num, green_time=green_time, det_time=det_time, off_time=off_time)
         photons, pulses = make_measurement()
-        count_time = det_time * spin.ns * pulses
+        #count_time = det_time * spin.ns * pulses
+        count_time = det_time * (spin.ns * 10.0**-9.0) * pulses
         counts = photons / count_time
         
         if w_ind == 0: 
