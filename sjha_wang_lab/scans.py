@@ -402,7 +402,7 @@ def focus_scan(generator,
     data = plotgen(focus_scanner)
     generator.rf_on = 0
 
-#Does a Rabi oscillation scan
+#Does a Rabi oscillation scan. Based on Ignas's iPython notebook from Fluorescence Microscopy Setup 1.
 def rabi_osc_scan(generator, power_dBm, freq,
               mw_pulse_min, mw_pulse_max, mw_pulse_step,
               amplifier_dBm=30.0, init_pause=0.0,
@@ -503,22 +503,18 @@ def rabi_osc_scan(generator, power_dBm, freq,
     #Save scan data
     save_scan(np.transpose(data), base_name='rabi_osc', scan_time=start_time, parameters=parameters)
 
-"""
-#cw_odmr_scan() old version (works well, just don't have repeat_each_freq parameter).
-def cw_odmr_scan(generator,
-              power_dBm, freq_center, freq_span, freq_step,
-              amplifier_dBm=30.0, lag=0.1, count_time=0.1,
-              init_pause=0.0, overlay=False):
+#Does a Rabi oscillation scan. Based on Mayra's iPython notebook from Croystat Setup 2.
+def rabi_scan(generator, power_dBm, freq, 
+              mw_pulse_min, mw_pulse_max, mw_pulse_step,
+              det_t=400, off_t=3000, green_t=5000,
+              duty_t=5000, wait_t=0, loop_num=100000,
+              amplifier_dBm=30.0, init_pause=0.0, 
+              lag=0.1, count_time=1.0,
+              overlay=True):
     '''
     Requires class hp_8647 or similar from instruments.py.
-    Example: initialize as and use as...
     
-    Averaging parameter: effective averging parameter is count_time * repeat_each_freq.
-    - count_time: how long, in s, to leave take in APD counts. APD samples at 10 Hz, so
-    e.g., count_time=1 would have 1 s and 10 samples per data point.
-    - repeat_each_freq: can measure at each mw pulse time more than once - this is
-    mainly to get around the issue that count_time has an upper limit (>~ 5s)
-    before memory issues occur.
+    Example: initialize as and use as...
     
     >>>#Initialization...
     >>>
@@ -527,70 +523,83 @@ def cw_odmr_scan(generator,
     >>>
     >>>rm = visa.ResourceManager()
     >>>rm.list_resources()
-    ('GPIB0::12::INSTR', 'GPIB0::18::INSTR')
+    ('GPIB0::19::INSTR', 'GPIB0::19::INSTR')
     >>>
-    >>>print(rm.open_resource('GPIB0::12::INSTR').query('*IDN?'))
-    Hewlett-Packard, 8648C, 3623A03349, B.04.03
+    >>>print(rm.open_resource('GPIB0::19::INSTR').query('*IDN?'))
+    Hewlett-Packard, 8648C, 3847M01380, B.04.09
     >>>
-    >>>hp = wli.hp_8647(rm.open_resource('GPIB0::12::INSTR'))
+    >>>gen = wli.hp_8647(rm.open_resource('GPIB0::19::INSTR'))
     >>>
     >>>#Set scan parameters, then run a scan
     >>>
     >>>power_dBm = 30.0
-    >>>freq_center = 2871.0
-    >>>freq_span = 100.0
-    >>>freq_step = 2.0
-    >>>count_time = 0.5
+    >>>freq = 2871.0
+    >>>mw_pulse_min = 15.0
+    >>>mw_pulse_max = 600.0
+    >>>mw_pulse_step = 60.0
     >>>
-    >>>cw_odmr_scan(hp, power_dBm, freq_center, freq_span, freq_step, count_time=count_time)
+    >>>rabi_scan(gen, power_dBm, freq, mw_pulse_min, mw_pulse_max, mw_pulse_step)
     '''
     import numpy as np
     import matplotlib.pyplot as plt
     import time
-    from itertools import count
-    from wanglib.util import scanner
+    from functools import partial
     from wanglib.pylab_extensions.live_plot import plotgen
+    from wanglib.util import scanner
     from general_tools import save_scan
-    from expt_supp import doct
-    
-    def doct2(t=count_time):
-        return doct(t)
+    from rabi_supp import rabi_start, do_count_v2, initialize, stop, close
     
     parameters = [['Intended input power (dBm)', str(float(power_dBm))],
                   ['Generator power (dBm)', str(float(power_dBm - amplifier_dBm))],
                   ['Assumed amplifier gain (dBm)', str(float(amplifier_dBm))],
-                  ['Generator frequency center (MHz)', str(float(freq_center))],
-                  ['Generator frequency span (MHz)', str(float(freq_span))],
-                  ['Generator frequency step (MHz)', str(float(freq_step))],
-                  ['Lag time (s)', str(float(lag))],
-                  ['Count time (s)', str(float(count_time))]
+                  ['Generator frequency (MHz)', str(float(freq))], 
+                  ['Minimum microwave pulse time (ns)', str(float(mw_pulse_min))],
+                  ['Maximum microwave pulse time (ns)', str(float(mw_pulse_max))],
+                  ['Microwave pulse time step (ns)', str(float(mw_pulse_step))],
+                  ['loop_num', str(int(loop_num))],
+                  ['count_time', str(float(count_time))],
+                  ['det_t', str(float(det_t))],
+                  ['off_t', str(float(off_t))],
+                  ['green_t', str(float(green_t))],
+                  ['duty_t', str(float(duty_t))],
                   ]
     
-    generator.rf_on = 1
+    widths = np.arange(1.0 * mw_pulse_min, 1.0 * mw_pulse_max + 1.0 * mw_pulse_step, 1.0 * mw_pulse_step)
+    
+    def rabi_pulse(mw_t):
+        rabi_start(mw_t, det_t=det_t, off_t=off_t, green_t=green_t, duty_t=duty_t, wait_t=wait_t, loop_num=loop_num)
+    
     generator.set_power(power_dBm - amplifier_dBm)
-
+    generator.set_frequency(freq)
+    
+    generator.set_rf(1)
+    generator.set_pulsed(1) #Works on machines with hardware for pulsed mode only
+    
+    initialize()
+    
     time.sleep(init_pause)
-    
-    generator.set_frequency(freq_center)
-    freqs = np.arange(-1 * freq_span / 2.0, freq_span / 2.0, freq_step) + freq_center
-    
     start_time = time.time() - init_pause
-    end_time = start_time + init_pause + (count_time + lag) * len(freqs)
+    end_time = start_time + init_pause + (count_time + lag) * len(widths)
     
     print('Scan start time: ' + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time)))
     print('Estimated scan end time: ' + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time)))
-    #print(freqs)
     
-    odmr = scanner(freqs, set=generator.set_frequency, get=doct2, lag=lag)
+    #Note: count_time is time spent on each frequency, not total time that APD is counting.
+    #Note: count_time only works up to whatever time loop_num allows.
+    sgen = scanner(widths,
+                   get=partial(do_count_v2, count_time),
+                   set=rabi_pulse,
+                   lag=lag)
     
-    generator.rf_on = 1
-    #remove previous scans from plot that will be displayed
     if not overlay:
         plt.clf()
-    data = plotgen(odmr)
-    generator.rf_on = 0
     
-    #Save scan data
+    data = plotgen(sgen)
+    
     save_scan(np.transpose(data), base_name='cw_odmr', scan_time=start_time, parameters=parameters)
-
-"""
+    
+    stop()
+    close()
+    
+    generator.set_rf(0)
+    generator.set_pulsed(0)
